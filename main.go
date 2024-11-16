@@ -1,16 +1,50 @@
+// main.go
 package main
 
 import (
+    "flag"
     "fmt"
     "os"
     "os/exec"
     "strings"
     "time"
+    "math/rand"
     
     "fishies/model"
     "fishies/render"
     "github.com/rwxrob/bonzai/anim"
 )
+
+type config struct {
+    numFish int
+    ground  bool
+}
+
+func parseFlags() config {
+    cfg := config{}
+    
+    flag.IntVar(&cfg.numFish, "fish", 3, "number of fish to simulate")
+    flag.IntVar(&cfg.numFish, "f", 3, "shorthand for --fish")
+    flag.BoolVar(&cfg.ground, "ground", false, "enable ground plane")
+    flag.BoolVar(&cfg.ground, "g", false, "shorthand for --ground")
+    
+    // Custom usage message
+    flag.Usage = func() {
+        fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+        fmt.Fprintf(os.Stderr, "Options:\n")
+        flag.PrintDefaults()
+    }
+    
+    flag.Parse()
+    
+    if cfg.numFish <= 0 {
+        fmt.Fprintf(os.Stderr, "Error: number of fish must be positive\n")
+        flag.Usage()
+        os.Exit(1)
+    }
+    
+    return cfg
+}
 
 // getTerminalSize retrieves current terminal dimensions
 func getTerminalSize() (width, height int) {
@@ -53,6 +87,11 @@ func colorToANSI(c render.Color) string {
 }
 
 func main() {
+    cfg := parseFlags()
+    
+    // Initialize random seed
+    rand.Seed(time.Now().UnixNano())
+
     err := anim.SimpleAnimationScreen()
     if err != nil {
         fmt.Printf("Error initializing animation screen: %v\n", err)
@@ -63,7 +102,7 @@ func main() {
     var frameBuilder strings.Builder
     frameBuilder.Grow(16384)
     
-    scene, light := model.CreateScene()
+    scene, light := model.CreateScene(cfg.numFish, cfg.ground)
     
     lastTime := time.Now()
     for {

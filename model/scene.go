@@ -1,92 +1,74 @@
+// model/scene.go
 package model
 
 import (
-    "math"
+    "math/rand"
     "gonum.org/v1/gonum/spatial/r3"
     "fishies/render"
 )
 
-func CreateScene() (*render.Scene, *render.Light) {
-    spheres := []render.Intersectable{
-        &HoledSphere{
-            Center: r3.Vec{-8, 5, 0},
-            InitialPos: r3.Vec{-8, 5, 0},
-            Velocity: r3.Vec{0, 0, 0},
-            Color:  render.Red,
-            Radius: 3.0,
-            EyeRadius: 0.4,
-            EyeDistance: 0.6,
-        },
-        &HoledSphere{
-            Center: r3.Vec{0, 3, 0},
-            InitialPos: r3.Vec{0, 3, 0},
-            Velocity: r3.Vec{0, 0, 0},
-            Color:  render.Cyan,
-            Radius: 5.0,
-            EyeRadius: 1.1,
-            EyeDistance: 1.3,
-        },
-        &HoledSphere{
-            Center: r3.Vec{8, 4, 0},
-            InitialPos: r3.Vec{8, 4, 0},
-            Velocity: r3.Vec{0, 0, 0},
-            Color:  render.Yellow,
-            Radius: 2.0,
-            EyeRadius: 0.3,
-            EyeDistance: 0.6,
-        },
+type SceneObject interface {
+    render.Intersectable
+    Update(deltaTime float64)
+}
+
+// Random color generator
+func randomColor() render.Color {
+    return render.Color{
+        R: 0.3 + rand.Float64()*0.7, // Avoiding too dark colors
+        G: 0.3 + rand.Float64()*0.7,
+        B: 0.3 + rand.Float64()*0.7,
+    }
+}
+
+func CreateScene(numFish int, ground bool) (*render.Scene, *render.Light) {
+    size := numFish
+    if ground {
+        size++
+    }
+    objects := make([]render.Intersectable, size)
+    
+    // Create fish at different heights with variation
+    baseHeight := 2.0
+    heightStep := 2.5
+    
+    for i := 0; i < numFish; i++ {
+        pos := r3.Vec{
+            X: rand.Float64()*4.0 - 2.0,  // Random initial X position between -2 and 2
+            Y: baseHeight + float64(i)*heightStep + rand.Float64()*1.0 - 0.5, // Add random variation ±0.5
+            Z: rand.Float64()*4.0 - 2.0,  // Random initial Z position between -2 and 2
+        }
+        
+        // Random size between 3.0 and 5.0 (doubled base size and increased variation)
+        size := 3.0 + rand.Float64()*2.0
+        
+        objects[i] = NewFish(pos, randomColor(), size)
+    }
+    
+    // Add ground if enabled
+    if ground {
+        objects[numFish] = NewGround(0.0)
     }
     
     light := &render.Light{
-        Direction: r3.Unit(r3.Vec{-1, -1, -1}),
-        Intensity: 1.0,
-        Ambient:   0.2,
+        Direction: r3.Unit(r3.Vec{-0.5, 2, -0.5}),
+        Intensity: 0.9,
+        Ambient: 0.3,
     }
     
+    cameraY := 7.0
+    cameraZ := -16.0
+    
     return &render.Scene{
-        Camera: r3.Vec{0, 0, -10},
-        Objects: spheres,
+        Camera: r3.Vec{0, cameraY, cameraZ},
+        Objects: objects,
     }, light
 }
 
-var totalElapsedTime float64 = 0.0
-
 func UpdateScene(scene *render.Scene, deltaTime float64) {
-    const (
-        GRAVITY float64 = -9.81
-        FLOOR_Y float64 = -5.0
-    )
-
-    totalElapsedTime += deltaTime
-
-    // Camera movement using accumulated time
-    scene.Camera = r3.Vec{
-        3 * math.Sin(totalElapsedTime)*0.5,
-        1 * math.Sin(float64(totalElapsedTime)*0.25),
-        -10 + 2*math.Cos(totalElapsedTime)*0.5,
-    }
-
-    // Update spheres
     for _, obj := range scene.Objects {
-        if sphere, ok := obj.(*HoledSphere); ok {
-            // Doubled rotation speed
-            sphere.Rotation += deltaTime * 0.8
-
-            // Apply gravity using actual deltaTime
-            sphere.Velocity.Y += deltaTime * GRAVITY
-
-            // Update position using actual deltaTime
-            newPos := r3.Add(sphere.Center, r3.Scale(deltaTime, sphere.Velocity))
-            sphere.Center = newPos
-
-            // Floor collision with perfect elastic reflection
-            if sphere.Center.Y-sphere.Radius < FLOOR_Y {
-                // Set position exactly at floor level to prevent any loss of energy
-                sphere.Center.Y = FLOOR_Y + sphere.Radius
-                
-                // Perfect elastic reflection
-                sphere.Velocity.Y = math.Abs(sphere.Velocity.Y)  // Force positive velocity
-            }
+        if sceneObj, ok := obj.(SceneObject); ok {
+            sceneObj.Update(deltaTime)
         }
     }
 }
