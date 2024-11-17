@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	github.com/rwxrob/bonzai/anim v0.1.0
+	golang.org/x/term v0.26.0
 	gonum.org/v1/gonum v0.15.1
 )
 
@@ -19,6 +20,5 @@ require (
 	github.com/rwxrob/bonzai/to v0.1.0 // indirect
 	github.com/rwxrob/bonzai/uniq v0.1.0 // indirect
 	golang.org/x/crypto v0.28.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/term v0.25.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
 )
